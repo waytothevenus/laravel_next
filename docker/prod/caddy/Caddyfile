@@ -1,0 +1,35 @@
+{
+    email admin@designnorth.ie
+}
+
+nbts.designnorth.ie {
+    log {
+        output file /data/access.log {
+            roll_size 10mb
+            roll_keep 10
+        }
+        format json
+        level DEBUG
+    }
+
+    @api {
+        path_regexp api ^/api/.*
+    }
+
+    handle @api {
+        rewrite * /index.php?{query}
+        php_fastcgi php-fpm:9000 {
+            root /app/public
+            env APP_ENV production
+        }
+    }
+
+    handle {
+        reverse_proxy frontend:3000
+    }
+
+    # Let Caddy handle HTTPS automatically
+    tls {
+        issuer acme
+    }
+}

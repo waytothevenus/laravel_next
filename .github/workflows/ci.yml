@@ -1,0 +1,156 @@
+name: CI
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.sha }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - "**.md"
+      - "**.MD"
+      - "docs/**"
+      - "LICENSE"
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, pdo_mysql, tokenizer, xml, ctype, json
+          ini-values: |
+            post_max_size=256M
+            upload_max_filesize=256M
+            memory_limit=1G
+
+      - name: Copy .env
+        run: |
+          if [ ! -f backend/.env ]; then
+            cp backend/.env.example backend/.env
+          fi
+
+      - name: Start MySQL and Dependencies
+        run: |
+          docker compose -f docker-compose.yml up -d db php-fpm
+
+      - name: Wait for MySQL to be ready
+        run: |
+          for i in {1..30}; do
+            if docker exec $(docker ps -qf name=db) mysqladmin ping -h"127.0.0.1" --silent; then
+              break
+            fi
+            echo "Waiting for database to be ready..."
+            sleep 2
+          done
+
+      - name: Install Dependencies
+        run: |
+          cd backend
+          composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Generate Application Key
+        run: |
+          cd backend
+          php artisan key:generate
+
+      - name: Run Migrations
+        run: |
+          cd backend
+          php artisan migrate --force
+
+      - name: Run Laravel Tests
+        run: |
+          cd backend
+          php artisan test
+
+      - name: Stop Containers
+        if: always()
+        run: docker compose -f docker-compose.yml down
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run Frontend Tests
+        run: |
+          cd frontend
+          npm run lint
+
+  build-docker:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    needs: [test-backend, test-frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            php:
+              - 'docker/prod/php-fpm/**'
+            composer:
+              - 'docker/dev/php-composer/**'
+
+      - name: Login to GitHub Container Registry
+        if: steps.changes.outputs.php == 'true' || steps.changes.outputs.composer == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push PHP-FPM
+        if: steps.changes.outputs.php == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/prod/php-fpm/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/php-fpm:head
+
+      - name: Build and push Composer
+        if: steps.changes.outputs.composer == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./docker/dev/php-composer
+          push: true
+          tags: ghcr.io/${{ github.repository }}/php-composer:head

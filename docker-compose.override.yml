@@ -1,0 +1,46 @@
+services:
+  frontend:
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - node_modules:/app/node_modules
+      - .next:/app/.next
+    command: npm run dev
+
+  db:
+    restart: unless-stopped
+    volumes:
+      - ./docker/dev/db/mysql:/var/lib/mysql:delegated
+      - ./docker/dev/db/init:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
+
+  php-fpm:
+    volumes:
+      - ./backend:/app:cached
+
+  composer:
+    volumes:
+      - ./backend:/app:cached
+
+  caddy:
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/dev/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ./docker/dev/caddy/data:/data
+      - ./docker/dev/caddy/config:/config
+
+  cypress:
+    image: cypress/included:9.7.0
+    environment:
+      - CYPRESS_BASE_URL=http://localhost:3000
+    depends_on:
+      - frontend
+      - php-fpm
+    volumes:
+      - ./cypress:/e2e

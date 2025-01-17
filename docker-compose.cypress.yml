@@ -1,0 +1,15 @@
+services:
+  cypress:
+    build:
+      context: .
+      dockerfile: ./docker/dev/cypress/Dockerfile
+    environment:
+      - CYPRESS_baseUrl=http://frontend:3000
+      - CYPRESS_VIDEO=false
+    volumes:
+      - ./cypress/cypress:/app/cypress
+      - ./cypress/cypress.config.js:/app/cypress.config.js
+    networks:
+      - app-network
+    depends_on:
+      - frontend

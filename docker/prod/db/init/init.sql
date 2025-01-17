@@ -1,0 +1,1 @@
+GRANT ALL PRIVILEGES ON laravel.* TO 'laravel_user'@'%' WITH GRANT OPTION;

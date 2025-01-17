@@ -1,0 +1,60 @@
+volumes:
+  node_modules:
+  .next:
+  caddy_data:
+  caddy_config:
+  mysql_data:
+
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    networks:
+      - app-network
+    depends_on:
+      - frontend
+      - php-fpm
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ./docker/dev/frontend/Dockerfile
+    networks:
+      - app-network
+
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: laravel
+      MYSQL_ROOT_PASSWORD: BRJfDgnAbAoFN2u6Xq9F
+      MYSQL_USER: laravel_user
+      MYSQL_PASSWORD: BRJfDgnAbAoFN2u6Xq9F1
+      MYSQL_PID_DIR: /var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - app-network
+
+  composer:
+    build:
+      context: ./docker/dev/php-composer
+    environment:
+      PHP_IDE_CONFIG: serverName=laravel.local
+      XDEBUG_MODE: off
+    user: 1000:82
+    networks:
+      - app-network
+    depends_on:
+      - db
+
+  php-fpm:
+    build:
+      context: .
+      dockerfile: ./docker/dev/php-fpm/Dockerfile
+    depends_on:
+      - db
+      - composer
+    networks:
+      - app-network

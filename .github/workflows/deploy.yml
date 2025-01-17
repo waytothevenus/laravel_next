@@ -1,0 +1,62 @@
+name: Deploy
+
+on: workflow_dispatch # Changed to manual trigger only
+
+jobs:
+  deploy-main:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: "dn_admin"
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          debug: true
+          cipher: "aes256-gcm@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr"
+          script: cd /var/www/nbts && git pull && ./deploy.sh
+
+  unit-tests:
+    needs: [deploy-main]
+    runs-on: ubuntu-latest
+    name: Run Laravel Unit Tests
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.1
+          extensions: mbstring, pdo_mysql, tokenizer, xml, ctype, json
+          ini-values: post_max_size=256M, upload_max_filesize=256M, memory_limit=1G
+
+      - name: Install Dependencies
+        run: |
+          composer install --prefer-dist --no-interaction
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Start MySQL
+        uses: appleboy/mysql-action@v1
+        with:
+          mysql-root-password: root
+          mysql-database: laravel
+
+      - name: Wait for MySQL to be ready
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h"127.0.0.1" --silent; then
+              break
+            fi
+            echo "Waiting for database to be ready..."
+            sleep 2
+          done
+
+      - name: Migrate Database
+        run: php artisan migrate --force
+
+      - name: Run PHPUnit Tests
+        run: php artisan test

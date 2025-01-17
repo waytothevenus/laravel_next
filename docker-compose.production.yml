@@ -1,0 +1,88 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: ./docker/prod/frontend/Dockerfile
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./build/latest/frontend:/app
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  db:
+    command:
+      - --require-secure-transport=OFF
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --explicit_defaults_for_timestamp=1
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql:delegated
+      - ./docker/prod/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${MYSQL_ROOT_PASSWORD}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  composer:
+    build:
+      context: ./docker/prod/php-composer
+      dockerfile: Dockerfile
+    environment:
+      - PHP_IDE_CONFIG=serverName=production
+      - XDEBUG_MODE=off
+    volumes:
+      - ./build/latest/backend:/app:cached
+    user: www-data
+    networks:
+      - app-network
+
+  php-fpm:
+    build:
+      context: .
+      dockerfile: ./docker/prod/php-fpm/Dockerfile
+    volumes:
+      - ./build/latest/backend:/app:cached
+    user: www-data
+    networks:
+      - app-network
+
+  caddy:
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/prod/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+  cypress:
+    image: cypress/included:9.7.0
+    environment:
+      - CYPRESS_BASE_URL=http://localhost
+    depends_on:
+      - frontend
+      - php-fpm
+    volumes:
+      - ./cypress:/e2e

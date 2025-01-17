@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Docker
+docker/dev/db/mysql/
+
+# Build
+build/
+dist/
+
+# Misc
+.DS_Store
+*.pem
+
+.idea
+*.code-workspace
+
+# Caddy
+/docker/dev/caddy/config
+/docker/dev/caddy/data
