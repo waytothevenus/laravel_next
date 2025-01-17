@@ -1,6 +1,9 @@
 name: Deploy
 
-on: workflow_dispatch # Changed to manual trigger only
+on: 
+  push:  
+    branches: 
+      - master
 
 jobs:
   deploy-main:
