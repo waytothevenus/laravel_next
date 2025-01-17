@@ -6,23 +6,23 @@ on:
       - master
 
 jobs:
-  # deploy-main:
-  #   runs-on: ubuntu-latest
-  #   if: github.ref == 'refs/heads/master'
-  #   steps:
-  #     - name: Deploy to server
-  #       uses: appleboy/ssh-action@v1.2.0
-  #       with:
-  #         host: ${{ secrets.SERVER_IP }}
-  #         username: "dn_admin"
-  #         key: ${{ secrets.SSH_PRIVATE_KEY }}
-  #         port: ${{ secrets.SSH_PORT }}
-  #         debug: true
-  #         cipher: "aes256-gcm@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr"
-  #         script: cd /var/www/nbts && git pull && ./deploy.sh
+  deploy-main:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: "dn_admin"
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          debug: true
+          cipher: "aes256-gcm@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr"
+          script: cd /var/www/nbts && git pull && ./deploy.sh
 
   unit-tests:
-    # needs: [deploy-main]
+    needs: [deploy-main]
     runs-on: ubuntu-latest
     name: Run Laravel Unit Tests
     steps:
