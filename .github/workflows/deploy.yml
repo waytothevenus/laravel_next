@@ -54,6 +54,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          cd /var/www/nbts/laravel_next/backend
           composer install --prefer-dist --no-interaction
           cp .env.example .env
           php artisan key:generate
