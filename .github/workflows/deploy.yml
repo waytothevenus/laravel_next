@@ -54,6 +54,8 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          cd backend
+          composer install --prefer-dist --no-interaction
           cp .env.example .env
           php artisan key:generate
 
