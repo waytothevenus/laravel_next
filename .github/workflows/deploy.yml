@@ -19,7 +19,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           debug: true
           cipher: "aes256-gcm@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr"
-          script: cd /var/www/nbts/laravel_next && git pull && ./deploy.sh
+          script: cd /var/www/nbts/laravel_next && git pull && ./deploy.sh && git config --global --add safe.directory /var/www/nbts/laravel_next
 
   unit-tests:
     needs: [deploy-main]
