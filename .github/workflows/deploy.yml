@@ -22,7 +22,7 @@ jobs:
   #         script: cd /var/www/nbts && git pull && ./deploy.sh
 
   unit-tests:
-    needs: [deploy-main]
+    # needs: [deploy-main]
     runs-on: ubuntu-latest
     name: Run Laravel Unit Tests
     steps:
